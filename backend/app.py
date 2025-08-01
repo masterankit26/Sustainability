@@ -5,7 +5,6 @@ import requests
 app = Flask(_name_)
 CORS(app)
 
-# 🔹 Add this health check or root route
 @app.route('/')
 def index():
     return jsonify({"status": "Backend is running"})
@@ -52,4 +51,3 @@ def location_data():
     except Exception as e:
         print("❌ Backend error:", str(e))
         return jsonify({'error': 'Failed to fetch weather data'}), 500
-
