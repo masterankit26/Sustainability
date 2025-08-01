@@ -53,5 +53,3 @@ def location_data():
         print("❌ Backend error:", str(e))
         return jsonify({'error': 'Failed to fetch weather data'}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True)
