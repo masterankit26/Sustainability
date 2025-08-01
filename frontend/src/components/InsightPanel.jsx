@@ -16,7 +16,7 @@ function InsightPanel({ location }) {
     const fetchWeather = async () => {
       try {
         const res = await axios.get(
-          `http://localhost:5000/api/location-data?lat=${location.lat}&lon=${location.lon}`
+          `https://sustainability-5oz0.onrender.com//api/location-data?lat=${location.lat}&lon=${location.lon}`
         );
         if (res.data && !res.data.error) {
           setData(res.data);
