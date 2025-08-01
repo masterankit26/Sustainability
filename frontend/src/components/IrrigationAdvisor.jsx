@@ -9,7 +9,7 @@ function IrrigationAdvisor({ areaSize = 1000, lat = 23.1, lon = 88.5 }) {
     const fetchEnvironment = async () => {
       try {
         const res = await axios.get(
-          `http://localhost:5000/api/location-data?lat=${lat}&lon=${lon}`
+          `https://sustainability-5oz0.onrender.com//api/location-data?lat=${lat}&lon=${lon}`
         );
         setEnvironment(res.data);
       } catch (err) {
