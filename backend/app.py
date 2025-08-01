@@ -2,8 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 
-app = Flask(__name__)
+app = Flask(_name_)
 CORS(app)
+
+# 🔹 Add this health check or root route
+@app.route('/')
+def index():
+    return jsonify({"status": "Backend is running"})
 
 @app.route('/api/location-data', methods=['GET'])
 def location_data():
@@ -38,7 +43,7 @@ def location_data():
             'temp_min': min(hourly.get("temperature_2m", []), default=None),
             'humidity': get_latest("relative_humidity_2m"),
             'wind_speed': get_latest("windspeed_10m"),
-            'rainfall': get_forecast("precipitation", hours=1),  # 👈 Next hour rainfall
+            'rainfall': get_forecast("precipitation", hours=1),
             'soil_moisture': get_latest("soil_moisture_0_1cm"),
             'temperature': get_latest("temperature_2m"),
             'history': hourly
