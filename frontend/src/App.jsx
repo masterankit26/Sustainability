@@ -5,7 +5,6 @@ import InsightPanel from './components/InsightPanel';
 import SensorChart from './components/SensorChart';
 import WeatherTimeline from './components/WeatherTimeline';
 import IrrigationAdvisor from './components/IrrigationAdvisor';
-//import ThankYou from './components/ThankYou';
 import SetupGuide from './components/SetupGuide';
 import SmartIrrigationOverview from './components/SmartIrrigationOverview';
 
@@ -33,7 +32,7 @@ function App() {
           <WeatherTimeline location={location} />
           
           <SmartIrrigationOverview />
-          {/* <ThankYou /> */}
+        
         </>
       )}
     </div>
