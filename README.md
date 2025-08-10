@@ -50,7 +50,29 @@ Crop Performance Enhancement
 
 - Data security ensured through end-to-end encryption and blockchain integration
 
+Technology Used :
+Frontend :
+1. React JS
+2. Tailwind CSS
+3. GSAP(react) & THREE.JS
+4. Axios
+5. Chart.js + react-chartjs-2
+6. Day.js
+7. React Icons
 
+Backend :
+1. Python
+2.  Flask
+3.   Flask-CORS
+4.   Requests
+5.   Open-Metro API
+
+Data & API :
+1. Open-Metro API
+2. GeoLocation API
+
+Database :
+1. Firebase
  Conclusion
  
 Smart Precision Farming represents a transformative approach to agricultural water management, combining cutting-edge technology with practical farming needs. With proven water savings of 40% and strong economic returns, the solution addresses both environmental sustainability and farm profitability. The robust technical foundation and clear implementation pathway position this innovation for rapid market adoption and significant impact on global water conservation efforts. Our solution doesn’t just conserve water—it optimizes the entire growing process, creating more resilient, profitable, and sustainable farming operations for the future.
