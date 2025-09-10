@@ -2,7 +2,6 @@
 
 An AI + IoT powered precision agriculture solution designed to help farmers conserve water, reduce costs, and improve crop yields. The system integrates IoT sensors, AI-driven analytics, and precision irrigation to deliver the right amount of water at the right time, ensuring both sustainability and profitability.
 
-👉 Repository Link: Sustainability
 
 🚜 Key Features
 📍 Location-Aware Farming
@@ -157,26 +156,6 @@ APIs Used
 
 📌 GeoLocation API
 
-▶️ How to Run
-# Clone the repo
-git clone https://github.com/masterankit26/Sustainability.git
-cd Sustainability
-
-Run Frontend
-cd frontend
-npm install
-npm start
-
-
-👉 Runs on: http://localhost:3000
-
-Run Backend
-cd backend
-pip install -r requirements.txt
-python app.py
-
-
-👉 API endpoint: http://localhost:5000/api/simulation
 
 📈 Conclusion
 
