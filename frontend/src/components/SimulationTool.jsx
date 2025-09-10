@@ -6,32 +6,40 @@ function SimulationTool() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-const simulate = async () => {
-  if (!input.area || !input.crop || !input.rate) {
-    alert("⚠️ Please fill in all fields.");
-    return;
-  }
+  // ✅ Grouped crop options with emojis
+  const cropCategories = {
+    "🌾 Cereals": ["rice", "wheat", "maize", "sorghum", "millet", "barley"],
+    "🥗 Pulses": ["pulses", "gram", "lentil", "pigeonpea", "mungbean"],
+    "🌻 Oilseeds": ["groundnut", "soybean", "mustard", "sunflower", "sesame", "castor"],
+    "🥦 Vegetables": ["potato", "onion", "tomato", "cabbage", "cauliflower", "brinjal", "okra"],
+    "🍎 Fruits": ["banana", "mango", "citrus", "papaya", "pomegranate", "apple", "grapes", "guava"],
+    "🏭 Commercial": ["sugarcane", "cotton", "jute", "tobacco"],
+    "☕ Plantation": ["tea", "coffee", "coconut", "arecanut"]
+  };
 
-  try {
-    setLoading(true);
+  const simulate = async () => {
+    if (!input.area || !input.crop || !input.rate) {
+      alert("⚠️ Please fill in all fields.");
+      return;
+    }
 
-    const res = await axios.post(
-      "https://sustainability-5oz0.onrender.com/api/simulation", // ✅ correct backend URL
-      input,
-      { headers: { "Content-Type": "application/json" } }
-    );
+    try {
+      setLoading(true);
 
-    setResult(res.data);
-  } catch (err) {
-    console.error("❌ Simulation error:", err);
-    alert("Something went wrong. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+      const res = await axios.post(
+        "https://sustainability-5oz0.onrender.com/api/simulation", // ✅ backend URL
+        input,
+        { headers: { "Content-Type": "application/json" } }
+      );
 
- 
-
+      setResult(res.data);
+    } catch (err) {
+      console.error("❌ Simulation error:", err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-lg mx-auto bg-white shadow-xl border border-green-100 rounded-2xl p-6 mt-8">
@@ -42,7 +50,9 @@ const simulate = async () => {
       {/* Inputs */}
       <div className="space-y-4 mb-6">
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Area (acres)</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Area (acres)
+          </label>
           <input
             type="number"
             placeholder="e.g. 5"
@@ -51,18 +61,33 @@ const simulate = async () => {
             className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none"
           />
         </div>
+
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Crop Type</label>
-          <input
-            type="text"
-            placeholder="e.g. Wheat"
+          <label className="block text-gray-700 font-medium mb-1">
+            Crop Type
+          </label>
+          <select
             value={input.crop}
             onChange={(e) => setInput({ ...input, crop: e.target.value })}
             className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none"
-          />
+          >
+            <option value="">-- Select Crop --</option>
+            {Object.entries(cropCategories).map(([category, crops]) => (
+              <optgroup key={category} label={category}>
+                {crops.map((c, i) => (
+                  <option key={i} value={c}>
+                    {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         </div>
+
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Electricity Rate (₹/unit)</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Electricity Rate (₹/unit)
+          </label>
           <input
             type="number"
             placeholder="e.g. 7"
@@ -85,15 +110,29 @@ const simulate = async () => {
       {/* Results */}
       {result && (
         <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-green-700 mb-2">📊 Results</h3>
+          <h3 className="text-lg font-semibold text-green-700 mb-2">
+            📊 Results
+          </h3>
           <p className="text-gray-700">
-            <strong>💧 Water Saved:</strong> {result.water_saved} liters
+            <strong>🌾 Crop:</strong> {result.crop}
           </p>
           <p className="text-gray-700">
-            <strong>💰 Cost Savings:</strong> ₹{result.cost_saved}
+            <strong>📐 Area:</strong> {result.area_acres} acres
           </p>
           <p className="text-gray-700">
-            <strong>📈 ROI:</strong> {result.roi}%
+            <strong>💧 Water Saved:</strong>{" "}
+            {result.water_saved_liters_per_day} liters/day
+          </p>
+          <p className="text-gray-700">
+            <strong>💰 Cost Savings:</strong> ₹{result.cost_saved_inr_per_day}/day
+          </p>
+          <p className="text-gray-700">
+            <strong>📈 ROI:</strong> {result.roi_percent_per_year}% per year
+          </p>
+
+          <p className="text-sm text-gray-500 mt-3 italic">
+            ⚠️ Note: Values are approximate. Actual needs depend on soil, region,
+            irrigation method, and climate.
           </p>
         </div>
       )}
