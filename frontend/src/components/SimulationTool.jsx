@@ -7,22 +7,28 @@ function SimulationTool() {
   const [loading, setLoading] = useState(false);
 
   const simulate = async () => {
-    if (!input.area || !input.crop || !input.rate) {
-      alert("⚠️ Please fill in all fields.");
-      return;
-    }
+  if (!input.area || !input.crop || !input.rate) {
+    alert("⚠️ Please fill in all fields.");
+    return;
+  }
 
-    try {
-      setLoading(true);
-      const res = await axios.post("http://localhost:5000/api/simulation", input);
-      setResult(res.data);
-    } catch (err) {
-      console.error("❌ Simulation error:", err);
-      alert("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+
+    const res = await axios.post(
+      "https://sustainability-sable.vercel.app/api/simulation",
+      input, // ✅ send user input in request body
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    setResult(res.data);
+  } catch (err) {
+    console.error("❌ Simulation error:", err);
+    alert("Something went wrong. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="max-w-lg mx-auto bg-white shadow-xl border border-green-100 rounded-2xl p-6 mt-8">
