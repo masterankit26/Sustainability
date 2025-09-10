@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Navbar from './components/Navbar';
 import MapPicker from './components/MapPicker';
 import InsightPanel from './components/InsightPanel';
+import SimulationTool from './components/SimulationTool';
 import SensorChart from './components/SensorChart';
 import WeatherTimeline from './components/WeatherTimeline';
 import IrrigationAdvisor from './components/IrrigationAdvisor';
@@ -28,6 +29,7 @@ function App() {
             location={location}        // For weather fetch if needed
           />
           <InsightPanel location={location} />
+           <SimulationTool location={location} />
           <SensorChart location={location} />
           <WeatherTimeline location={location} />
           
