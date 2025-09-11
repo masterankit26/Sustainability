@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify
+from datetime import datetime
 from flask_cors import CORS
 import requests
-from datetime import datetime   # ✅ FIXED (missing import)
+
 
 app = Flask(__name__)
 CORS(app)
@@ -56,6 +57,9 @@ def location_data():
         print("❌ Backend error:", str(e))
         return jsonify({'error': 'Failed to fetch weather data'}), 500
 
+
+
+
 @app.route('/api/energy', methods=['GET'])
 def energy_dashboard():
     lat = request.args.get('lat', type=float)
@@ -65,12 +69,11 @@ def energy_dashboard():
     panel_size = request.args.get('panel_size', default=10.0, type=float)  # m²
     efficiency = request.args.get('efficiency', default=0.20, type=float)  # 20%
     usage_pct = request.args.get('usage_pct', default=0.60, type=float)    # 60%
-    co2_factor = request.args.get('co2_factor', default=0.85, type=float) # kg CO₂/kWh
+    co2_factor = request.args.get('co2_factor', default=0.85, type=float)  # kg CO₂/kWh
 
     if lat is None or lon is None:
         return jsonify({"error": "Latitude and Longitude required"}), 400
 
-    # Today's date in UTC
     today = datetime.utcnow().strftime('%Y%m%d')
 
     # 🌞 NASA POWER API (hourly data for today)
@@ -91,16 +94,25 @@ def energy_dashboard():
                 .get('parameter', {})
                 .get('ALLSKY_SFC_SW_DWN', {})
         )
+
         if not irradiance_data:
             raise ValueError("Missing irradiance data")
 
-        # ✅ Use the most recent hour available
-        latest_hour = sorted(irradiance_data.keys())[-1]
-        solar_irradiance = irradiance_data[latest_hour]  # Wh/m²
-        solar_irradiance_kwh = solar_irradiance / 1000.0  # Convert Wh → kWh
+        # ✅ Use the latest non-zero value if available
+        latest_hour = None
+        solar_irradiance = 0
+        for hour in sorted(irradiance_data.keys(), reverse=True):
+            if irradiance_data[hour] and irradiance_data[hour] > 0:
+                latest_hour = hour
+                solar_irradiance = irradiance_data[hour]
+                break
+
+        if latest_hour is None:
+            raise ValueError("No valid irradiance values found")
+
+        solar_irradiance_kwh = solar_irradiance / 1000.0  # Wh → kWh
 
         # ⚡ Estimate generation
-        # Energy = irradiance × panel area × efficiency
         solar_kw = round(solar_irradiance_kwh * panel_size * efficiency, 3)
         usage_kw = round(solar_kw * usage_pct, 3)
         co2_saved = round((solar_kw - usage_kw) * co2_factor, 3)
@@ -120,11 +132,10 @@ def energy_dashboard():
 
     except Exception as e:
         print("❌ NASA API error:", str(e))
-        # Fallback values
         return jsonify({
-            "solar_kw": 3.2,
-            "usage_kw": 2.0,
-            "co2_saved": 1.02,
+            "solar_kw": 0,
+            "usage_kw": 0,
+            "co2_saved": 0,
             "note": "Fallback data used due to NASA API error"
         })
 
