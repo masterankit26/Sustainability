@@ -74,7 +74,7 @@ def energy_dashboard():
     url = (
         f"https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
-        f"&hourly=shortwave_radiation&timezone=UTC"
+        f"&hourly=shortwave_radiation&timezone=auto"
     )
 
     try:
@@ -91,25 +91,15 @@ def energy_dashboard():
 
         # Current hour in UTC
         now = datetime.utcnow()
-        current_hour_str = now.strftime("%Y-%m-%dT%H:00:00")
+        current_hour_str = now.strftime("%Y-%m-%dT%H:00")
 
         if current_hour_str in times:
             idx = times.index(current_hour_str)
             solar_radiation = radiation[idx]
         else:
-            idx = -1
             solar_radiation = radiation[-1]
             current_hour_str = times[-1]
 
-        # ✅ If current radiation is zero (night), fallback to last non-zero value
-        if solar_radiation == 0:
-            for i in range(len(radiation) - 1, -1, -1):
-                if radiation[i] > 0:
-                    solar_radiation = radiation[i]
-                    current_hour_str = times[i]
-                    break
-
-        # Convert W/m² → kW/m²
         solar_kwh_m2 = solar_radiation / 1000.0
         solar_kw = round(solar_kwh_m2 * panel_size * efficiency, 3)
         usage_kw = round(solar_kw * usage_pct, 3)
@@ -136,7 +126,6 @@ def energy_dashboard():
             "co2_saved": 0,
             "note": "Fallback data used due to API error"
         })
-
 
 # 🌱 Simulation route
 @app.route('/api/simulation', methods=['POST'])
