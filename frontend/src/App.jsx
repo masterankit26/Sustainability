@@ -4,11 +4,12 @@ import MapPicker from './components/MapPicker';
 import InsightPanel from './components/InsightPanel';
 import SimulationTool from './components/SimulationTool';
 import SensorChart from './components/SensorChart';
+import EnergyDashboard from './components/EnergyDashboard';
 import WeatherTimeline from './components/WeatherTimeline';
 import IrrigationAdvisor from './components/IrrigationAdvisor';
 import SetupGuide from './components/SetupGuide';
 import SmartIrrigationOverview from './components/SmartIrrigationOverview';
-import EnergyDashboard from './components/EnergyDashboard';
+
 
 function App() {
   const [location, setLocation] = useState({ lat: null, lon: null });
@@ -31,7 +32,7 @@ function App() {
           />
           <InsightPanel location={location} />
            <SimulationTool location={location} />
-          <EnergyDashboard location={location}/>
+          <EnergyDashboard location={location} />
           <SensorChart location={location} />
           <WeatherTimeline location={location} />
           
