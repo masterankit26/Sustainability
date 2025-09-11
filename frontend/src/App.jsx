@@ -36,8 +36,9 @@ function App() {
             location={location}
           />
           <InsightPanel location={location} />
+          <EnergyDashboard location={location} />
           <SimulationTool location={location} />
-          <EnergyDashboard location={location} /> {/* ✅ uses location */}
+          
           <SensorChart location={location} />
           <WeatherTimeline location={location} />
           <SmartIrrigationOverview />
