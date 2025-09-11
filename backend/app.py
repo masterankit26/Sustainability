@@ -59,29 +59,24 @@ def location_data():
 
 
 
-
 @app.route('/api/energy', methods=['GET'])
 def energy_dashboard():
     lat = request.args.get('lat', type=float)
     lon = request.args.get('lon', type=float)
 
-    # Optional system parameters
-    panel_size = request.args.get('panel_size', default=10.0, type=float)  # m²
-    efficiency = request.args.get('efficiency', default=0.20, type=float)  # 20%
-    usage_pct = request.args.get('usage_pct', default=0.60, type=float)    # 60%
-    co2_factor = request.args.get('co2_factor', default=0.85, type=float)  # kg CO₂/kWh
+    panel_size = request.args.get('panel_size', default=10.0, type=float)
+    efficiency = request.args.get('efficiency', default=0.20, type=float)
+    usage_pct = request.args.get('usage_pct', default=0.60, type=float)
+    co2_factor = request.args.get('co2_factor', default=0.85, type=float)
 
     if lat is None or lon is None:
         return jsonify({"error": "Latitude and Longitude required"}), 400
 
-    today = datetime.utcnow().strftime('%Y%m%d')
-
-    # 🌞 NASA POWER API (hourly data for today)
+    # Get hourly shortwave radiation
     url = (
-        f"https://power.larc.nasa.gov/api/temporal/hourly/point"
-        f"?start={today}&end={today}"
-        f"&latitude={lat}&longitude={lon}"
-        f"&parameters=ALLSKY_SFC_SW_DWN&format=JSON"
+        f"https://api.open-meteo.com/v1/forecast?"
+        f"latitude={lat}&longitude={lon}"
+        f"&hourly=shortwave_radiation&timezone=auto"
     )
 
     try:
@@ -89,36 +84,34 @@ def energy_dashboard():
         response.raise_for_status()
         data = response.json()
 
-        irradiance_data = (
-            data.get('properties', {})
-                .get('parameter', {})
-                .get('ALLSKY_SFC_SW_DWN', {})
-        )
+        hourly = data.get("hourly", {})
+        times = hourly.get("time", [])
+        radiation = hourly.get("shortwave_radiation", [])
 
-        if not irradiance_data:
-            raise ValueError("Missing irradiance data")
+        if not times or not radiation:
+            raise ValueError("No solar radiation data found")
 
-        # ✅ Use the latest non-zero value if available
-        latest_hour = None
-        solar_irradiance = 0
-        for hour in sorted(irradiance_data.keys(), reverse=True):
-            if irradiance_data[hour] and irradiance_data[hour] > 0:
-                latest_hour = hour
-                solar_irradiance = irradiance_data[hour]
-                break
+        # Find current hour based on local time
+        now = datetime.utcnow()
+        # Approximate current hour in data
+        current_hour_str = now.strftime("%Y-%m-%dT%H:00")
+        if current_hour_str in times:
+            idx = times.index(current_hour_str)
+            solar_radiation = radiation[idx]
+        else:
+            # fallback to last available hour
+            solar_radiation = radiation[-1]
+            current_hour_str = times[-1]
 
-        if latest_hour is None:
-            raise ValueError("No valid irradiance values found")
+        # Convert W/m² → kWh/m² per hour
+        solar_kwh_m2 = solar_radiation / 1000.0
 
-        solar_irradiance_kwh = solar_irradiance / 1000.0  # Wh → kWh
-
-        # ⚡ Estimate generation
-        solar_kw = round(solar_irradiance_kwh * panel_size * efficiency, 3)
+        solar_kw = round(solar_kwh_m2 * panel_size * efficiency, 3)
         usage_kw = round(solar_kw * usage_pct, 3)
         co2_saved = round((solar_kw - usage_kw) * co2_factor, 3)
 
         return jsonify({
-            "timestamp": latest_hour,
+            "timestamp": current_hour_str,
             "solar_kw": solar_kw,
             "usage_kw": usage_kw,
             "co2_saved": max(co2_saved, 0),
@@ -131,13 +124,14 @@ def energy_dashboard():
         })
 
     except Exception as e:
-        print("❌ NASA API error:", str(e))
+        print("❌ Open-Meteo API error:", str(e))
         return jsonify({
             "solar_kw": 0,
             "usage_kw": 0,
             "co2_saved": 0,
-            "note": "Fallback data used due to NASA API error"
+            "note": "Fallback data used due to API error"
         })
+
 
 
 # 🌱 Simulation route with accurate Indian crop data
