@@ -1,8 +1,7 @@
 from flask import Flask, request, jsonify
-from datetime import datetime
 from flask_cors import CORS
 import requests
-
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -58,8 +57,7 @@ def location_data():
         return jsonify({'error': 'Failed to fetch weather data'}), 500
 
 
-
-
+# 🌞 Energy route using Open-Meteo solar radiation
 @app.route('/api/energy', methods=['GET'])
 def energy_dashboard():
     lat = request.args.get('lat', type=float)
@@ -73,7 +71,6 @@ def energy_dashboard():
     if lat is None or lon is None:
         return jsonify({"error": "Latitude and Longitude required"}), 400
 
-    # Get hourly shortwave radiation
     url = (
         f"https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
@@ -92,21 +89,18 @@ def energy_dashboard():
         if not times or not radiation:
             raise ValueError("No solar radiation data found")
 
-        # Find current hour based on local time
+        # Current hour in UTC
         now = datetime.utcnow()
-        # Approximate current hour in data
         current_hour_str = now.strftime("%Y-%m-%dT%H:00")
+
         if current_hour_str in times:
             idx = times.index(current_hour_str)
             solar_radiation = radiation[idx]
         else:
-            # fallback to last available hour
             solar_radiation = radiation[-1]
             current_hour_str = times[-1]
 
-        # Convert W/m² → kWh/m² per hour
         solar_kwh_m2 = solar_radiation / 1000.0
-
         solar_kw = round(solar_kwh_m2 * panel_size * efficiency, 3)
         usage_kw = round(solar_kw * usage_pct, 3)
         co2_saved = round((solar_kw - usage_kw) * co2_factor, 3)
@@ -134,15 +128,14 @@ def energy_dashboard():
         })
 
 
-
-# 🌱 Simulation route with accurate Indian crop data
+# 🌱 Simulation route
 @app.route('/api/simulation', methods=['POST'])
 def simulation_tool():
     try:
         data = request.get_json(force=True)
-        area = float(data.get('area', 1))   # farmland area in acres
+        area = float(data.get('area', 1))
         crop = data.get('crop', 'maize').lower()
-        rate = float(data.get('rate', 6.5))  # ₹ per electricity unit
+        rate = float(data.get('rate', 6.5))
 
         crop_water_req = {
             "rice": 45987, "wheat": 15176, "maize": 18395, "sorghum": 19271,
@@ -158,10 +151,9 @@ def simulation_tool():
         }
 
         base_req = crop_water_req.get(crop, 18000)
-
-        water_saved = round(area * base_req * 0.3, 2)  # liters/day
+        water_saved = round(area * base_req * 0.3, 2)
         cost_saved = round((water_saved / 1000) * rate, 2)
-        investment = area * 5000  # ₹5000/acre baseline
+        investment = area * 5000
         roi = round((cost_saved * 365 / investment) * 100, 2)
 
         return jsonify({
@@ -178,7 +170,7 @@ def simulation_tool():
         return jsonify({'error': 'Failed to run simulation'}), 500
 
 
-
 if __name__ == '__main__':
     print("✅ Backend running...")
-    app.run(debug=True)
+    # For deployment, use host='0.0.0.0' so Render or other hosts can access
+    app.run(debug=True, host='0.0.0.0', port=5000)
