@@ -59,6 +59,7 @@ def location_data():
 
 
 
+
 @app.route('/api/energy', methods=['GET'])
 def energy_dashboard():
     lat = request.args.get('lat', type=float)
