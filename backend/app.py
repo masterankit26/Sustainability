@@ -11,6 +11,7 @@ def index():
     return jsonify({"status": "Backend is running"})
 
 
+
 # 🌍 Weather + location data route
 @app.route('/api/location-data', methods=['GET'])
 def location_data():
@@ -151,6 +152,81 @@ def simulation_tool():
     except Exception as e:
         print("❌ Simulation error:", str(e))
         return jsonify({'error': 'Failed to run simulation'}), 500
+
+
+@app.route('/api/energy', methods=['GET'])
+def energy_dashboard():
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+
+    # Optional system parameters
+    panel_size = request.args.get('panel_size', default=10.0, type=float)  # m²
+    efficiency = request.args.get('efficiency', default=0.20, type=float)  # 20%
+    usage_pct = request.args.get('usage_pct', default=0.60, type=float)    # 60%
+    co2_factor = request.args.get('co2_factor', default=0.85, type=float) # kg CO₂/kWh
+
+    if lat is None or lon is None:
+        return jsonify({"error": "Latitude and Longitude required"}), 400
+
+    # Today's date in UTC
+    today = datetime.utcnow().strftime('%Y%m%d')
+
+    # 🌞 NASA POWER API (hourly data for today)
+    url = (
+        f"https://power.larc.nasa.gov/api/temporal/hourly/point"
+        f"?start={today}&end={today}"
+        f"&latitude={lat}&longitude={lon}"
+        f"&parameters=ALLSKY_SFC_SW_DWN&format=JSON"
+    )
+
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        irradiance_data = (
+            data.get('properties', {})
+                .get('parameter', {})
+                .get('ALLSKY_SFC_SW_DWN', {})
+        )
+        if not irradiance_data:
+            raise ValueError("Missing irradiance data")
+
+        # ✅ Use the most recent hour available
+        latest_hour = sorted(irradiance_data.keys())[-1]
+        solar_irradiance = irradiance_data[latest_hour]  # Wh/m²
+        solar_irradiance_kwh = solar_irradiance / 1000.0  # Convert Wh → kWh
+
+        # ⚡ Estimate generation
+        # Energy = irradiance × panel area × efficiency
+        solar_kw = round(solar_irradiance_kwh * panel_size * efficiency, 3)
+        usage_kw = round(solar_kw * usage_pct, 3)
+        co2_saved = round((solar_kw - usage_kw) * co2_factor, 3)
+
+        return jsonify({
+            "timestamp": latest_hour,
+            "solar_kw": solar_kw,
+            "usage_kw": usage_kw,
+            "co2_saved": max(co2_saved, 0),
+            "params": {
+                "panel_size_m2": panel_size,
+                "efficiency": efficiency,
+                "usage_pct": usage_pct,
+                "co2_factor": co2_factor
+            }
+        })
+
+    except Exception as e:
+        print("❌ NASA API error:", str(e))
+        # Fallback values
+        return jsonify({
+            "solar_kw": 3.2,
+            "usage_kw": 2.0,
+            "co2_saved": 1.02,
+            "note": "Fallback data used due to NASA API error"
+        })
+
+
 
 
 if __name__ == '__main__':
