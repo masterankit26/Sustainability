@@ -200,24 +200,7 @@ def carbon_footprint():
         return jsonify({"generation_kwh": 0, "co2_avoided_kg": 0})
 
 
-# ----------------- ROI CALCULATOR -----------------
-@app.route('/api/roi', methods=['GET'])
-def roi():
-    capex = request.args.get('capex', type=float, default=80000.0)  # ₹ (system cost)
-    panel_size = request.args.get('panel_size', type=float, default=10.0)
-    efficiency = request.args.get('efficiency', type=float, default=0.20)
-    electricity_price = request.args.get('electricity_price', type=float, default=7.0)  # ₹/kWh
 
-    # Assume average 4.5 sun hours/day
-    daily_kwh = panel_size * efficiency * 4.5
-    yearly_savings = daily_kwh * 365 * electricity_price
-    payback_years = capex / yearly_savings if yearly_savings > 0 else None
-
-    return jsonify({
-        "daily_kwh": round(daily_kwh, 2),
-        "yearly_savings_inr": round(yearly_savings, 2),
-        "payback_years": round(payback_years, 2) if payback_years else "Infinity"
-    })
 
 
 
