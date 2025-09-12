@@ -5,9 +5,7 @@ import SimulationTool from './components/SimulationTool';
 import InsightPanel from './components/InsightPanel';
 import SensorChart from './components/SensorChart';
 import WeatherTimeline from './components/WeatherTimeline';
-import EnergyDashboard from './components/EnergyDashboard';
 import IrrigationAdvisor from './components/IrrigationAdvisor';
-// import ThankYou from './components/ThankYou';
 import SetupGuide from './components/SetupGuide';
 import SmartIrrigationOverview from './components/SmartIrrigationOverview';
 
@@ -32,7 +30,7 @@ function App() {
           />
           <InsightPanel location={location} />
           
-          <EnergyDashboard location={location}/>
+          
          
           <SimulationTool location={location} />
            
