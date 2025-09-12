@@ -336,9 +336,6 @@ def roi():
 
 
 
-
-
-
 if __name__ == '__main__':
     print("✅ Backend running...")
     # For deployment, use host='0.0.0.0' so Render or other hosts can access
