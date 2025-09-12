@@ -39,7 +39,7 @@ function App() {
           
         
           <SimulationTool location={location} />
-          <EnergyDashboard location={location}/>
+          <EnergyDashboard />
           
           <SensorChart location={location} />
           <WeatherTimeline location={location} />
