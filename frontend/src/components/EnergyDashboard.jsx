@@ -1,144 +1,230 @@
-import React, { useEffect, useRef, useState } from "react";
-import axios from "axios";
-import * as THREE from "three";
-import gsap from "gsap";
+import { useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 
-function EnergyDashboard({ location }) {
-  const [data, setData] = useState(null);
-  const containerRef = useRef(null);
-  const sceneRef = useRef(null);
-  const cameraRef = useRef(null);
-  const rendererRef = useRef(null);
-  const animationIdRef = useRef(null);
+export default function EnergyDashboard() {
+  const [lat, setLat] = useState(28.6139);
+  const [lon, setLon] = useState(77.2090);
+  const [panelSize, setPanelSize] = useState(10);
+  const [efficiency, setEfficiency] = useState(0.2);
+  const [usage, setUsage] = useState(5);
+  const [overrideGen, setOverrideGen] = useState(0);
 
-  // 🌍 Fetch energy data when location changes
-  useEffect(() => {
-    if (location?.lat && location?.lon) {
-      axios
-        .get(
-          `https://sustainability-5oz0.onrender.com/api/energy?lat=${location.lat}&lon=${location.lon}`
-        )
-        .then((res) => setData(res.data))
-        .catch((err) => console.error("❌ Energy fetch error:", err));
-    }
-  }, [location]);
+  const [energyRes, setEnergyRes] = useState(null);
+  const [compareRes, setCompareRes] = useState(null);
+  const [carbonRes, setCarbonRes] = useState(null);
+  const [roiRes, setRoiRes] = useState(null);
 
-  // 🎨 Setup Three.js background
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  const [loading, setLoading] = useState(false);
 
-    const scene = new THREE.Scene();
-    sceneRef.current = scene;
+  // ✅ Use deployed backend
+  const BASE = "https://sustainability-5oz0.onrender.com";
 
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    camera.position.z = 5;
-    cameraRef.current = camera;
-
-    const renderer = new THREE.WebGLRenderer({ alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    container.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
-    const geometry = new THREE.SphereGeometry(0.2, 32, 32);
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x22c55e,
-      emissive: 0x16a34a,
-      roughness: 0.5,
-      metalness: 0.3,
-    });
-
-    const spheres = [];
-    for (let i = 0; i < 10; i++) {
-      const sphere = new THREE.Mesh(geometry, material);
-      sphere.position.set(
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 6,
-        (Math.random() - 0.5) * 6
-      );
-      scene.add(sphere);
-      spheres.push(sphere);
-    }
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0xffffff, 1);
-    pointLight.position.set(5, 5, 5);
-    scene.add(pointLight);
-
-    const animate = () => {
-      animationIdRef.current = requestAnimationFrame(animate);
-      spheres.forEach((s, i) => {
-        s.rotation.x += 0.005;
-        s.rotation.y += 0.005;
-        s.position.y += Math.sin(Date.now() * 0.001 + i) * 0.002;
+  // ---- Fetch Data ----
+  const getEnergy = async () => {
+    setLoading(true);
+    try {
+      // ENERGY
+      const energyParams = new URLSearchParams({
+        lat,
+        lon,
+        panel_size: panelSize,
+        efficiency,
       });
-      renderer.render(scene, camera);
-    };
-    animate();
+      const energyRes = await fetch(`${BASE}/api/energy?${energyParams}`);
+      const energyData = await energyRes.json();
+      setEnergyRes(energyData);
 
-    return () => {
-      cancelAnimationFrame(animationIdRef.current);
-      renderer.dispose();
-      container.removeChild(renderer.domElement);
-    };
-  }, []);
+      // COMPARE
+      const compareParams = new URLSearchParams({
+        generation: overrideGen || energyData.solar_kw,
+        usage,
+      });
+      const compareRes = await fetch(`${BASE}/api/compare?${compareParams}`);
+      const compareData = await compareRes.json();
+      setCompareRes(compareData);
 
-  // ✨ Animate cards when data loads
-  useEffect(() => {
-    if (data) {
-      gsap.fromTo(
-        ".card",
-        { y: 50, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.8, stagger: 0.2, ease: "power3.out" }
-      );
+      // CARBON FOOTPRINT
+      const carbonParams = new URLSearchParams({
+        lat,
+        lon,
+        panel_size: panelSize,
+        efficiency,
+        period: "daily",
+      });
+      const carbonRes = await fetch(`${BASE}/api/carbon_footprint?${carbonParams}`);
+      const carbonData = await carbonRes.json();
+      setCarbonRes(carbonData);
+
+      // ROI
+      const roiParams = new URLSearchParams({
+        capex: 1000,
+        panel_size: panelSize,
+        efficiency,
+        electricity_price: 0.12,
+      });
+      const roiRes = await fetch(`${BASE}/api/roi?${roiParams}`);
+      const roiData = await roiRes.json();
+      setRoiRes(roiData);
+    } catch (err) {
+      console.error("❌ Error fetching:", err);
+    } finally {
+      setLoading(false);
     }
-  }, [data]);
+  };
+
+  // Chart data
+  const chartData = energyRes
+    ? [
+        { name: "Solar", value: energyRes.solar_kw },
+        { name: "Wind", value: energyRes.wind_kw },
+        { name: "Hydro", value: energyRes.hydro_kw },
+      ]
+    : [];
 
   return (
-    <div
-      ref={containerRef}
-      className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-gradient-to-br from-green-50 to-emerald-100"
-    >
-      <div className="absolute z-10 w-full max-w-lg p-6">
-        <h2 className="text-3xl font-bold text-emerald-700 mb-8 text-center">
-          🔋 Renewable Energy Dashboard
-        </h2>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 flex flex-col md:flex-row p-6 gap-6">
+      {/* Sidebar */}
+      <div className="w-full md:w-1/3 bg-white rounded-2xl shadow-xl p-6 space-y-4 border border-gray-200">
+        <h1 className="text-2xl font-bold mb-4 text-gray-900">⚡ Energy Dashboard</h1>
 
-        {data ? (
-          <div className="grid gap-6">
-            <div className="card bg-white rounded-2xl shadow-lg p-6 backdrop-blur-md hover:shadow-xl transition">
-              <p className="text-gray-500 text-sm">Solar Generation</p>
-              <p className="text-2xl font-semibold text-emerald-600">
-                {data.solar_kw} kW
-              </p>
+        <label className="block text-sm font-semibold text-gray-800">Latitude</label>
+        <input
+          type="number"
+          value={lat}
+          onChange={(e) => setLat(Number(e.target.value))}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
+        />
+
+        <label className="block text-sm font-semibold text-gray-800">Longitude</label>
+        <input
+          type="number"
+          value={lon}
+          onChange={(e) => setLon(Number(e.target.value))}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
+        />
+
+        <label className="block text-sm font-semibold text-gray-800">Panel Size (m²)</label>
+        <input
+          type="number"
+          value={panelSize}
+          onChange={(e) => setPanelSize(Number(e.target.value))}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
+        />
+
+        <label className="block text-sm font-semibold text-gray-800">Efficiency (0-1)</label>
+        <input
+          type="number"
+          step="0.01"
+          value={efficiency}
+          onChange={(e) => setEfficiency(Number(e.target.value))}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
+        />
+
+        <button
+          onClick={getEnergy}
+          disabled={loading}
+          className="w-full p-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
+        >
+          {loading ? "Loading..." : "Get Energy Data"}
+        </button>
+
+        <h2 className="text-lg font-bold mt-6 text-gray-900">📊 Compare / ROI</h2>
+
+        <label className="block text-sm font-semibold text-gray-800">Usage (kWh/day)</label>
+        <input
+          type="number"
+          value={usage}
+          onChange={(e) => setUsage(Number(e.target.value))}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
+        />
+
+        <label className="block text-sm font-semibold text-gray-800">Override Generation (kWh/day)</label>
+        <input
+          type="number"
+          value={overrideGen}
+          onChange={(e) => setOverrideGen(Number(e.target.value))}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 bg-white rounded-2xl shadow-xl p-6 border border-gray-200">
+        <h2 className="text-xl font-bold mb-4 text-gray-900">📈 Results</h2>
+
+        {/* Chart */}
+        {energyRes && (
+          <div className="w-full h-64 mb-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#22c55e" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Data Cards */}
+        {energyRes && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="p-4 bg-green-50 rounded-lg shadow border border-green-200">
+              <strong className="text-gray-900">Timestamp</strong><br />{energyRes.timestamp}
             </div>
-            <div className="card bg-white rounded-2xl shadow-lg p-6 backdrop-blur-md hover:shadow-xl transition">
-              <p className="text-gray-500 text-sm">Usage</p>
-              <p className="text-2xl font-semibold text-amber-600">
-                {data.usage_kw} kW
-              </p>
+            <div className="p-4 bg-yellow-50 rounded-lg shadow border border-yellow-200">
+              <strong className="text-gray-900">Solar (kW)</strong><br />{energyRes.solar_kw}
             </div>
-            <div className="card bg-white rounded-2xl shadow-lg p-6 backdrop-blur-md hover:shadow-xl transition">
-              <p className="text-gray-500 text-sm">CO₂ Saved</p>
-              <p className="text-2xl font-semibold text-green-600">
-                {data.co2_saved} kg
-              </p>
+            <div className="p-4 bg-blue-50 rounded-lg shadow border border-blue-200">
+              <strong className="text-gray-900">Wind (kW)</strong><br />{energyRes.wind_kw}
+            </div>
+            <div className="p-4 bg-purple-50 rounded-lg shadow border border-purple-200">
+              <strong className="text-gray-900">Hydro (kW)</strong><br />{energyRes.hydro_kw}
             </div>
           </div>
-        ) : (
-          <p className="text-center text-gray-500 animate-pulse">
-            Loading energy data...
-          </p>
+        )}
+
+        {compareRes && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-6">
+            <div className="p-4 bg-green-100 rounded-lg shadow border border-green-200">
+              <strong className="text-gray-900">Generation (kWh/day)</strong><br />{compareRes.generation_kwh}
+            </div>
+            <div className="p-4 bg-red-100 rounded-lg shadow border border-red-200">
+              <strong className="text-gray-900">Usage (kWh/day)</strong><br />{compareRes.usage_kwh}
+            </div>
+            <div className="p-4 bg-indigo-100 rounded-lg shadow border border-indigo-200">
+              <strong className="text-gray-900">Balance</strong><br />{compareRes.balance_kwh} ({compareRes.status})
+            </div>
+          </div>
+        )}
+
+        {carbonRes && (
+          <div className="mt-6 p-4 bg-emerald-100 rounded-lg shadow border border-emerald-200 text-sm">
+            <strong className="text-gray-900">🌍 CO₂ Avoided (kg)</strong><br />{carbonRes.co2_avoided_kg}
+          </div>
+        )}
+
+        {roiRes && (
+          <div className="grid grid-cols-2 gap-4 text-sm mt-6">
+            <div className="p-4 bg-sky-100 rounded-lg shadow border border-sky-200">
+              <strong className="text-gray-900">ROI - Payback (yrs)</strong><br />{roiRes.payback_years}
+            </div>
+            <div className="p-4 bg-orange-100 rounded-lg shadow border border-orange-200">
+              <strong className="text-gray-900">Yearly Savings ($)</strong><br />{roiRes.yearly_savings}
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
 }
-
-export default EnergyDashboard;
