@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
@@ -341,4 +340,4 @@ def roi():
 if __name__ == '__main__':
     print("✅ Backend running...")
     # For deployment, use host='0.0.0.0' so Render or other hosts can access
-    app.run(debug=True, host='0.0.0.0', port=5000) - fix the code please 
+    app.run(debug=True, host='0.0.0.0', port=5000)
