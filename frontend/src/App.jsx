@@ -1,19 +1,18 @@
-import React, { useState } from "react";
-import Navbar from "./components/Navbar";
-import MapPicker from "./components/MapPicker";
-import SimulationTool from "./components/SimulationTool";
-import InsightPanel from "./components/InsightPanel";
-import SensorChart from "./components/SensorChart";
-import EnergyDashboard from "./components/EnergyDashboard";
-import WeatherTimeline from "./components/WeatherTimeline";
-import IrrigationAdvisor from "./components/IrrigationAdvisor";
-import SetupGuide from "./components/SetupGuide";
-import SmartIrrigationOverview from "./components/SmartIrrigationOverview";
+import React, { useState } from 'react';
+import Navbar from './components/Navbar';
+import MapPicker from './components/MapPicker';
+import SimulationTool from './components/SimulationTool';
+import InsightPanel from './components/InsightPanel';
+import SensorChart from './components/SensorChart';
+import WeatherTimeline from './components/WeatherTimeline';
+import IrrigationAdvisor from './components/IrrigationAdvisor';
+import SetupGuide from './components/SetupGuide';
+import SmartIrrigationOverview from './components/SmartIrrigationOverview';
 
 function App() {
   const [location, setLocation] = useState({ lat: null, lon: null });
 
-  const isValid = (val) => typeof val === "number" && !isNaN(val);
+  const isValid = (val) => typeof val === 'number' && !isNaN(val);
   const isLocationValid = isValid(location.lat) && isValid(location.lon);
 
   return (
@@ -30,12 +29,17 @@ function App() {
             location={location}
           />
           <InsightPanel location={location} />
+          
+          
+         
           <SimulationTool location={location} />
+           
           <SensorChart location={location} />
           <WeatherTimeline location={location} />
-          {/* ✅ Pass location to EnergyDashboard */}
-          <EnergyDashboard location={location} />
+      
+         
           <SmartIrrigationOverview />
+          {/* <ThankYou /> */}
         </div>
       ) : (
         <div className="text-center py-10 text-red-600 font-semibold">
