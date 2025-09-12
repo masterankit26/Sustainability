@@ -58,6 +58,7 @@ def location_data():
 
 
 # 🌞 Energy route using Open-Meteo solar radiation
+
 @app.route('/api/energy', methods=['GET'])
 def energy_dashboard():
     lat = request.args.get('lat', type=float)
@@ -89,27 +90,36 @@ def energy_dashboard():
         if not times or not radiation:
             raise ValueError("No solar radiation data found")
 
-        # Current hour in UTC
-        now = datetime.utcnow()
+        # Get local timezone datetime
+        tz = data.get("timezone", "UTC")
+        now = datetime.now(pytz.timezone(tz))
         current_hour_str = now.strftime("%Y-%m-%dT%H:00")
 
         if current_hour_str in times:
             idx = times.index(current_hour_str)
             solar_radiation = radiation[idx]
         else:
+            # Fallback to last available hour
             solar_radiation = radiation[-1]
             current_hour_str = times[-1]
 
-        solar_kwh_m2 = solar_radiation / 1000.0
-        solar_kw = round(solar_kwh_m2 * panel_size * efficiency, 3)
+        # Convert W/m² → kW/m²
+        solar_kw_m2 = solar_radiation / 1000.0
+
+        # Total power generation
+        solar_kw = round(solar_kw_m2 * panel_size * efficiency, 3)
+
+        # User consumption
         usage_kw = round(solar_kw * usage_pct, 3)
-        co2_saved = round((solar_kw - usage_kw) * co2_factor, 3)
+
+        # CO₂ saved = unused solar power × factor
+        co2_saved = round(max(solar_kw - usage_kw, 0) * co2_factor, 3)
 
         return jsonify({
             "timestamp": current_hour_str,
             "solar_kw": solar_kw,
             "usage_kw": usage_kw,
-            "co2_saved": max(co2_saved, 0),
+            "co2_saved": co2_saved,
             "params": {
                 "panel_size_m2": panel_size,
                 "efficiency": efficiency,
@@ -126,6 +136,7 @@ def energy_dashboard():
             "co2_saved": 0,
             "note": "Fallback data used due to API error"
         })
+
 
 # 🌱 Simulation route
 @app.route('/api/simulation', methods=['POST'])
