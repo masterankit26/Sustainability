@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 from datetime import datetime
+import pytz
 
 app = Flask(__name__)
 CORS(app)
@@ -58,7 +59,6 @@ def location_data():
 
 
 # 🌞 Energy route using Open-Meteo solar radiation
-
 @app.route('/api/energy', methods=['GET'])
 def energy_dashboard():
     lat = request.args.get('lat', type=float)
@@ -75,7 +75,6 @@ def energy_dashboard():
     url = (
         f"https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
-        f"&hourly=shortwave_radiation"
         f"&daily=shortwave_radiation_sum"
         f"&timezone=auto"
     )
@@ -85,50 +84,32 @@ def energy_dashboard():
         response.raise_for_status()
         data = response.json()
 
-        hourly = data.get("hourly", {})
-        times = hourly.get("time", [])
-        radiation = hourly.get("shortwave_radiation", [])
-
         daily = data.get("daily", {})
         daily_times = daily.get("time", [])
         daily_radiation = daily.get("shortwave_radiation_sum", [])
 
-        if not times or not radiation:
+        if not daily_times or not daily_radiation:
             raise ValueError("No solar radiation data found")
 
         # Local timezone
         tz = data.get("timezone", "UTC")
         now = datetime.now(pytz.timezone(tz))
-        current_hour_str = now.strftime("%Y-%m-%dT%H:00")
+        today_str = now.strftime("%Y-%m-%d")
 
-        solar_kw = 0
-        usage_kw = 0
-        co2_saved = 0
+        if today_str in daily_times:
+            d_idx = daily_times.index(today_str)
+            daily_val_wh = daily_radiation[d_idx]        # Wh/m²
+            daily_val_kwh = daily_val_wh / 1000.0        # convert to kWh/m²
 
-        # ---- Option C Logic ----
-        if current_hour_str in times:
-            idx = times.index(current_hour_str)
-            solar_radiation = radiation[idx]   # W/m²
-            if solar_radiation > 0:
-                # Use real-time radiation
-                solar_kw_m2 = solar_radiation / 1000.0
-                solar_kw = round(solar_kw_m2 * panel_size * efficiency, 3)
-                usage_kw = round(solar_kw * usage_pct, 3)
-                co2_saved = round(max(solar_kw - usage_kw, 0) * co2_factor, 3)
-            else:
-                # Night time → fallback to daily sum
-                if daily_times and daily_radiation:
-                    today_str = now.strftime("%Y-%m-%d")
-                    if today_str in daily_times:
-                        d_idx = daily_times.index(today_str)
-                        daily_val = daily_radiation[d_idx] / 1000.0  # Wh/m² → kWh/m²
-                        solar_kw = round(daily_val * panel_size * efficiency, 3)
-                        usage_kw = round(solar_kw * usage_pct, 3)
-                        co2_saved = round(max(solar_kw - usage_kw, 0) * co2_factor, 3)
-        # -------------------------
+            # Total daily generation
+            solar_kw = round(daily_val_kwh * panel_size * efficiency, 3)
+            usage_kw = round(solar_kw * usage_pct, 3)
+            co2_saved = round(max(solar_kw - usage_kw, 0) * co2_factor, 3)
+        else:
+            solar_kw = usage_kw = co2_saved = 0
 
         return jsonify({
-            "timestamp": current_hour_str,
+            "date": today_str,
             "solar_kw": solar_kw,
             "usage_kw": usage_kw,
             "co2_saved": co2_saved,
@@ -138,7 +119,7 @@ def energy_dashboard():
                 "usage_pct": usage_pct,
                 "co2_factor": co2_factor
             },
-            "note": "Real-time data used" if usage_kw > 0 else "Fallback daily data used"
+            "note": "Daily energy total (kWh) shown instead of real-time"
         })
 
     except Exception as e:
