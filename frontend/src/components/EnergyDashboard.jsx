@@ -10,9 +10,9 @@ import {
   Legend,
 } from "recharts";
 
-export default function EnergyDashboard() {
-  const [lat, setLat] = useState(null);
-  const [lon, setLon] = useState(null);
+export default function EnergyDashboard({ location }) {
+  const [lat, setLat] = useState(location?.lat || null);
+  const [lon, setLon] = useState(location?.lon || null);
   const [panelSize, setPanelSize] = useState(10);
   const [efficiency, setEfficiency] = useState(0.2);
   const [usage, setUsage] = useState(5);
@@ -22,32 +22,31 @@ export default function EnergyDashboard() {
   const [compareRes, setCompareRes] = useState(null);
   const [carbonRes, setCarbonRes] = useState(null);
   const [roiRes, setRoiRes] = useState(null);
-
   const [loading, setLoading] = useState(false);
 
   const BASE = "https://sustainability-5oz0.onrender.com";
 
-  // 🔹 Auto-detect location on first load
+  // 🔹 Sync with parent location (MapPicker)
   useEffect(() => {
-    if (navigator.geolocation) {
+    if (location?.lat && location?.lon) {
+      setLat(location.lat.toFixed(4));
+      setLon(location.lon.toFixed(4));
+    } else if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setLat(pos.coords.latitude.toFixed(4));
           setLon(pos.coords.longitude.toFixed(4));
         },
-        (err) => {
-          console.error("❌ Location access denied:", err);
-          // fallback → New Delhi
+        () => {
           setLat(28.6139);
           setLon(77.2090);
         }
       );
     } else {
-      console.warn("Geolocation not supported");
       setLat(28.6139);
       setLon(77.2090);
     }
-  }, []);
+  }, [location]);
 
   // ---- Fetch Data ----
   const getEnergy = async () => {
@@ -90,7 +89,7 @@ export default function EnergyDashboard() {
       const carbonData = await carbonRes.json();
       setCarbonRes(carbonData);
 
-      // ROI (₹ instead of $)
+      // ROI
       const roiParams = new URLSearchParams({
         capex: 80000, // in ₹
         panel_size: panelSize,
