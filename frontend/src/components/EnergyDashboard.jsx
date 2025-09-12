@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -12,8 +11,8 @@ import {
 } from "recharts";
 
 export default function EnergyDashboard() {
-  const [lat, setLat] = useState(28.6139);
-  const [lon, setLon] = useState(77.2090);
+  const [lat, setLat] = useState(null);
+  const [lon, setLon] = useState(null);
   const [panelSize, setPanelSize] = useState(10);
   const [efficiency, setEfficiency] = useState(0.2);
   const [usage, setUsage] = useState(5);
@@ -26,11 +25,37 @@ export default function EnergyDashboard() {
 
   const [loading, setLoading] = useState(false);
 
-  // ✅ Use deployed backend
-  const BASE = "https://sustainability-5oz0.onrender.com";
+  const BASE = "https://sustainability-5oz0.onrender.com/";
+
+  // 🔹 Auto-detect location on first load
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLat(pos.coords.latitude.toFixed(4));
+          setLon(pos.coords.longitude.toFixed(4));
+        },
+        (err) => {
+          console.error("❌ Location access denied:", err);
+          // fallback → New Delhi
+          setLat(28.6139);
+          setLon(77.2090);
+        }
+      );
+    } else {
+      console.warn("Geolocation not supported");
+      setLat(28.6139);
+      setLon(77.2090);
+    }
+  }, []);
 
   // ---- Fetch Data ----
   const getEnergy = async () => {
+    if (!lat || !lon) {
+      alert("Waiting for location...");
+      return;
+    }
+
     setLoading(true);
     try {
       // ENERGY
@@ -65,12 +90,12 @@ export default function EnergyDashboard() {
       const carbonData = await carbonRes.json();
       setCarbonRes(carbonData);
 
-      // ROI
+      // ROI (₹ instead of $)
       const roiParams = new URLSearchParams({
-        capex: 1000,
+        capex: 80000, // in ₹
         panel_size: panelSize,
         efficiency,
-        electricity_price: 0.12,
+        electricity_price: 7.0, // ₹/kWh
       });
       const roiRes = await fetch(`${BASE}/api/roi?${roiParams}`);
       const roiData = await roiRes.json();
@@ -100,16 +125,16 @@ export default function EnergyDashboard() {
         <label className="block text-sm font-semibold text-gray-800">Latitude</label>
         <input
           type="number"
-          value={lat}
-          onChange={(e) => setLat(Number(e.target.value))}
+          value={lat || ""}
+          onChange={(e) => setLat(parseFloat(e.target.value))}
           className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
         />
 
         <label className="block text-sm font-semibold text-gray-800">Longitude</label>
         <input
           type="number"
-          value={lon}
-          onChange={(e) => setLon(Number(e.target.value))}
+          value={lon || ""}
+          onChange={(e) => setLon(parseFloat(e.target.value))}
           className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
         />
 
@@ -117,7 +142,7 @@ export default function EnergyDashboard() {
         <input
           type="number"
           value={panelSize}
-          onChange={(e) => setPanelSize(Number(e.target.value))}
+          onChange={(e) => setPanelSize(parseFloat(e.target.value))}
           className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
         />
 
@@ -126,7 +151,7 @@ export default function EnergyDashboard() {
           type="number"
           step="0.01"
           value={efficiency}
-          onChange={(e) => setEfficiency(Number(e.target.value))}
+          onChange={(e) => setEfficiency(parseFloat(e.target.value))}
           className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
         />
 
@@ -144,7 +169,7 @@ export default function EnergyDashboard() {
         <input
           type="number"
           value={usage}
-          onChange={(e) => setUsage(Number(e.target.value))}
+          onChange={(e) => setUsage(parseFloat(e.target.value))}
           className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
         />
 
@@ -152,7 +177,7 @@ export default function EnergyDashboard() {
         <input
           type="number"
           value={overrideGen}
-          onChange={(e) => setOverrideGen(Number(e.target.value))}
+          onChange={(e) => setOverrideGen(parseFloat(e.target.value))}
           className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:outline-none"
         />
       </div>
@@ -221,7 +246,7 @@ export default function EnergyDashboard() {
               <strong className="text-gray-900">ROI - Payback (yrs)</strong><br />{roiRes.payback_years}
             </div>
             <div className="p-4 bg-orange-100 rounded-lg shadow border border-orange-200">
-              <strong className="text-gray-900">Yearly Savings ($)</strong><br />{roiRes.yearly_savings}
+              <strong className="text-gray-900">Yearly Savings (₹)</strong><br />{roiRes.yearly_savings_inr}
             </div>
           </div>
         )}
