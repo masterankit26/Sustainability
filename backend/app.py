@@ -59,78 +59,167 @@ def location_data():
         return jsonify({'error': 'Failed to fetch weather data'}), 500
 
 
-# 🌞 Energy route using Open-Meteo solar radiation
+# 🌞 Energy route
+# ----------------- ENERGY DASHBOARD -----------------
 @app.route('/api/energy', methods=['GET'])
 def energy_dashboard():
     lat = request.args.get('lat', type=float)
     lon = request.args.get('lon', type=float)
-
-    panel_size = request.args.get('panel_size', default=10.0, type=float)
+    panel_size = request.args.get('panel_size', default=10.0, type=float)  # m²
     efficiency = request.args.get('efficiency', default=0.20, type=float)
-    usage_pct = request.args.get('usage_pct', default=0.60, type=float)
-    co2_factor = request.args.get('co2_factor', default=0.85, type=float)
 
     if lat is None or lon is None:
         return jsonify({"error": "Latitude and Longitude required"}), 400
 
-    url = (
-        f"https://api.open-meteo.com/v1/forecast?"
-        f"latitude={lat}&longitude={lon}"
-        f"&daily=shortwave_radiation_sum"
-        f"&timezone=auto"
-    )
-
     try:
+        # Call Open-Meteo
+        url = (
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={lat}&longitude={lon}"
+            f"&hourly=shortwave_radiation,wind_speed_10m,precipitation&timezone=auto"
+        )
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
 
-        daily = data.get("daily", {})
-        daily_times = daily.get("time", [])
-        daily_radiation = daily.get("shortwave_radiation_sum", [])
+        hourly = data.get("hourly", {})
+        times = hourly.get("time", [])
+        radiation = hourly.get("shortwave_radiation", [])
+        wind_speed = hourly.get("wind_speed_10m", [])
+        precipitation = hourly.get("precipitation", [])
 
-        if not daily_times or not daily_radiation:
-            raise ValueError("No solar radiation data found")
+        if not times:
+            raise ValueError("No weather data found")
 
-        # Local timezone
-        tz = data.get("timezone", "UTC")
-        now = datetime.now(pytz.timezone(tz))
-        today_str = now.strftime("%Y-%m-%d")
-
-        if today_str in daily_times:
-            d_idx = daily_times.index(today_str)
-            daily_val_wh = daily_radiation[d_idx]        # Wh/m²
-            daily_val_kwh = daily_val_wh / 1000.0        # convert to kWh/m²
-
-            # Total daily generation
-            solar_kw = round(daily_val_kwh * panel_size * efficiency, 3)
-            usage_kw = round(solar_kw * usage_pct, 3)
-            co2_saved = round(max(solar_kw - usage_kw, 0) * co2_factor, 3)
+        # Match current local hour
+        now = datetime.now().strftime("%Y-%m-%dT%H:00")
+        if now in times:
+            idx = times.index(now)
         else:
-            solar_kw = usage_kw = co2_saved = 0
+            idx = -1  # fallback to last available hour
+
+        # ---- Solar ----
+        solar_rad = radiation[idx] if radiation else 0  # W/m²
+        solar_kw = (solar_rad / 1000.0) * panel_size * efficiency  # kW
+
+        # ---- Wind ----
+        wind = wind_speed[idx] if wind_speed else 0
+        air_density = 1.225  # kg/m³
+        rotor_radius = 2  # meters (small turbine)
+        swept_area = math.pi * rotor_radius**2
+        turbine_eff = 0.35
+        wind_kw = 0.5 * air_density * swept_area * (wind ** 3) * turbine_eff / 1000
+
+        # ---- Hydro (use DAILY rainfall, not just hourly) ----
+        daily_rain_mm = sum(precipitation) if precipitation else 0
+        watershed_area = 1000  # m², tunable
+        head = 5  # meters height drop
+        hydro_eff = 0.7
+        rain_m = daily_rain_mm / 1000
+        volume_m3 = rain_m * watershed_area
+        mass_kg = volume_m3 * 1000
+        g = 9.81
+        hydro_kw = (mass_kg * g * head * hydro_eff) / (3600 * 1000)
 
         return jsonify({
-            "date": today_str,
-            "solar_kw": solar_kw,
-            "usage_kw": usage_kw,
-            "co2_saved": co2_saved,
-            "params": {
-                "panel_size_m2": panel_size,
-                "efficiency": efficiency,
-                "usage_pct": usage_pct,
-                "co2_factor": co2_factor
-            },
-            "note": "Daily energy total (kWh) shown instead of real-time"
+            "timestamp": times[idx],
+            "solar_kw": round(solar_kw, 3),
+            "wind_kw": round(wind_kw, 3),
+            "hydro_kw": round(hydro_kw, 3)
         })
 
     except Exception as e:
-        print("❌ Open-Meteo API error:", str(e))
+        print("❌ Energy API error:", str(e))
+        return jsonify({"solar_kw": 0, "wind_kw": 0, "hydro_kw": 0})
+
+
+# ----------------- COMPARE USAGE -----------------
+@app.route('/api/compare', methods=['GET'])
+def compare_usage():
+    generation = request.args.get('generation', type=float, default=1.0)  # kWh/day
+    usage = request.args.get('usage', type=float, default=1.0)  # kWh/day
+
+    balance = generation - usage
+    return jsonify({
+        "generation_kwh": round(generation, 2),
+        "usage_kwh": round(usage, 2),
+        "balance_kwh": round(balance, 2),
+        "status": "Surplus" if balance >= 0 else "Deficit"
+    })
+
+
+# ----------------- CARBON FOOTPRINT -----------------
+@app.route('/api/carbon_footprint', methods=['GET'])
+def carbon_footprint():
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    panel_size = request.args.get('panel_size', default=10.0, type=float)
+    efficiency = request.args.get('efficiency', default=0.20, type=float)
+    co2_factor = request.args.get('co2_factor', default=0.85, type=float)  # kg CO₂/kWh
+    period = request.args.get('period', default="daily")  # daily/monthly/yearly
+
+    if lat is None or lon is None:
+        return jsonify({"error": "Latitude and Longitude required"}), 400
+
+    try:
+        url = (
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={lat}&longitude={lon}"
+            f"&hourly=shortwave_radiation&timezone=auto"
+        )
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        radiation = data.get("hourly", {}).get("shortwave_radiation", [])
+        if not radiation:
+            raise ValueError("No solar radiation data found")
+
+        daily_kwh_m2 = sum(radiation) / 1000.0
+        daily_gen = daily_kwh_m2 * panel_size * efficiency
+
+        if period == "daily":
+            gen_kwh = daily_gen
+        elif period == "monthly":
+            gen_kwh = daily_gen * 30
+        elif period == "yearly":
+            gen_kwh = daily_gen * 365
+        else:
+            gen_kwh = daily_gen
+
+        co2_avoided = gen_kwh * co2_factor
+
         return jsonify({
-            "solar_kw": 0,
-            "usage_kw": 0,
-            "co2_saved": 0,
-            "note": "Fallback data used due to API error"
+            "period": period,
+            "generation_kwh": round(gen_kwh, 2),
+            "co2_avoided_kg": round(co2_avoided, 2)
         })
+
+    except Exception as e:
+        print("❌ Carbon Footprint API error:", str(e))
+        return jsonify({"generation_kwh": 0, "co2_avoided_kg": 0})
+
+
+# ----------------- ROI CALCULATOR -----------------
+@app.route('/api/roi', methods=['GET'])
+def roi():
+    capex = request.args.get('capex', type=float, default=80000.0)  # ₹ (system cost)
+    panel_size = request.args.get('panel_size', type=float, default=10.0)
+    efficiency = request.args.get('efficiency', type=float, default=0.20)
+    electricity_price = request.args.get('electricity_price', type=float, default=7.0)  # ₹/kWh
+
+    # Assume average 4.5 sun hours/day
+    daily_kwh = panel_size * efficiency * 4.5
+    yearly_savings = daily_kwh * 365 * electricity_price
+    payback_years = capex / yearly_savings if yearly_savings > 0 else None
+
+    return jsonify({
+        "daily_kwh": round(daily_kwh, 2),
+        "yearly_savings_inr": round(yearly_savings, 2),
+        "payback_years": round(payback_years, 2) if payback_years else "Infinity"
+    })
+
+
 
 
 # 🌱 Simulation route
