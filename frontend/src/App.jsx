@@ -4,7 +4,6 @@ import MapPicker from './components/MapPicker';
 import SimulationTool from './components/SimulationTool';
 import InsightPanel from './components/InsightPanel';
 import SensorChart from './components/SensorChart';
-import EnergyDashboard from './components/EnergyDashboard';
 import WeatherTimeline from './components/WeatherTimeline';
 import IrrigationAdvisor from './components/IrrigationAdvisor';
 import SetupGuide from './components/SetupGuide';
@@ -30,7 +29,7 @@ function App() {
             location={location}
           />
           <InsightPanel location={location} />
-          <EnergyDashboard location={location}/>
+          
           
           
          
