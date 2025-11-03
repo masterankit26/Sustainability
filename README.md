@@ -51,7 +51,6 @@ Powered by Open-Meteo Solar API
 
 Provides hourly solar irradiance data for the farm’s location.
 
-Converts irradiance into solar power generation (kW), energy usage, and CO₂ saved.
 
 Benefits for farmers:
 
