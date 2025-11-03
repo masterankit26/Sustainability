@@ -153,7 +153,7 @@ Backend:
 
 📡 Requests
 
-☁️ Open-Meteo API (weather + solar data)
+☁️ Open-Meteo API
 
 Database:
 
